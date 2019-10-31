@@ -10,7 +10,7 @@ const os = require('os')
 const childProcess = require('child_process')
 
 const user = os.userInfo()
-console.log(user)
+//console.log(user)
 
 const plugin = {
   /**

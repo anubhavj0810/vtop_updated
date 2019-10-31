@@ -133,6 +133,11 @@ const App = ((() => {
       tags: true,
       left: Math.floor(program.cols / 2 - (28 / 2))
     })
+    
+    screen.remove(header) //
+    screen.remove(date) //
+    screen.remove(loadAverage)  //
+
     screen.append(header)
     screen.append(date)
     screen.append(loadAverage)
@@ -143,12 +148,14 @@ const App = ((() => {
       const time = new Date()
       date.setContent(`${zeroPad(time.getHours())}:${zeroPad(time.getMinutes())}:${zeroPad(time.getSeconds())} `)
       screen.render()
+      screen.detach()
     }
 
     const updateLoadAverage = () => {
       const avg = os.loadavg()
       loadAverage.setContent(`Load Average: ${avg[0].toFixed(2)} ${avg[1].toFixed(2)} ${avg[2].toFixed(2)}`)
       screen.render()
+      screen.detach()
     }
 
     updateTime()
@@ -188,6 +195,7 @@ const App = ((() => {
       fg: loadedTheme.footer.fg
     })
     footerRight.setContent(text)
+    screen.remove(footerRight)
     screen.append(footerRight)
   }
 
@@ -284,7 +292,7 @@ const App = ((() => {
       // const cpu_usage = `${"Average CPU usage in last "}${time_now}${"s"}${" is "}${cpu_avg}%{white-fg}${"\tCurrent CPU usage is "}${"\t"}${percent.slice(-3)}%{/white-fg}${textOutput[0].slice(0, textOutput[0].length - 4)}`
       // textOutput[0] = `${cpu_usage}`
     
-      if(cpu_current>20){
+      if(cpu_current>15){
         const cpu_usage = `${"Average CPU usage in last "}${time_now}${"s"}${" is "}${cpu_avg}%{red-fg}${"\tWarning!!!! Current CPU usage is "}${"\t"}${percent.slice(-3)}%{/red-fg}`
         textOutput[0] = `${cpu_usage}`
         graph = blessed.box({
@@ -298,6 +306,7 @@ const App = ((() => {
           border: require(`./themes/${"wizard"}.json`).chart.border
         })
         graph.setLabel(` ${charts[0].plugin.title} `)
+        screen.remove(graph)
         screen.append(graph)
       }
       
@@ -315,6 +324,7 @@ const App = ((() => {
           border: require(`./themes/${cli.theme}.json`).chart.border
         })
         graph.setLabel(` ${charts[0].plugin.title} `)
+        screen.remove(graph)
         screen.append(graph)
       }
 
@@ -333,7 +343,7 @@ const App = ((() => {
       // const mem_usage = `${"Average Memory usage in last "}${time_now}${"s"}${" is "}${mem_avg}%{white-fg}${"\tCurrent Memory usage is "}${"\t"}${percent.slice(-3)}%{/white-fg}${textOutput[0].slice(0, textOutput[0].length - 4)}`
       // textOutput[0] = `${mem_usage}`
       
-      if(mem_current>70){
+      if(mem_current>65){
         const mem_usage = `${"Average Memory usage in last "}${time_now}${"s"}${" is "}${mem_avg}%{red-fg}${"\tWarning!!! Current Memory usage is "}${"\t"}${percent.slice(-3)}%{/red-fg}`
         textOutput[0] = `${mem_usage}`
         graph2 = blessed.box({
@@ -347,6 +357,7 @@ const App = ((() => {
           border: require(`./themes/${"brew"}.json`).chart.border
         })
         graph2.setLabel(` ${charts[1].plugin.title} `)
+        screen.remove(graph2)
         screen.append(graph2)
       }
 
@@ -364,6 +375,7 @@ const App = ((() => {
           border: require(`./themes/${cli.theme}.json`).chart.border
         })
         graph2.setLabel(` ${charts[1].plugin.title} `)
+        screen.remove(graph2)
         screen.append(graph2)
       }
 
@@ -498,6 +510,7 @@ const App = ((() => {
     }
 
     screen.render()
+    screen.detach()
   }
 
   // Public function (just the entry point)
@@ -658,6 +671,7 @@ const App = ((() => {
         border: loadedTheme.chart.border
       })
 
+      screen.remove(graph)  //
       screen.append(graph)
 
       let graph2appended = false
@@ -678,7 +692,9 @@ const App = ((() => {
           tags: true,
           border: loadedTheme.chart.border
         })
-        screen.append(graph2)
+
+        screen.remove(graph2) //
+        screen.append(graph2) //
 
         processList = blessed.box({
           top: graph.height + 1,
@@ -691,6 +707,7 @@ const App = ((() => {
           tags: true,
           border: loadedTheme.table.border
         })
+        screen.remove(processList)
         screen.append(processList)
 
         processListSelection = blessed.list({
@@ -711,6 +728,7 @@ const App = ((() => {
         processListSelection.focus()
         drawFooter()  // For Processes' Controls fail to display, in window height change
         screen.render()
+        screen.detach()
       }
 
       screen.on('resize', () => {
@@ -718,12 +736,18 @@ const App = ((() => {
       })
       createBottom()
 
+      screen.remove(graph)
       screen.append(graph)
+      screen.remove(processList)
       screen.append(processList)
 
       // Render the screen.
       screen.render()
-
+      screen.detach()
+      //screen.destroy()
+      //screen = blessed.screen()
+      //console.log(screen)
+      //console.log(screen.lines)
       const setupCharts = () => {
         size.pixel.width = (graph.width - 2) * 2
         size.pixel.height = (graph.height - 2) * 4
@@ -777,7 +801,6 @@ const App = ((() => {
       setupCharts()
       screen.on('resize', setupCharts)
       intervals.push(setInterval(draw, parseInt(cli['updateInterval'], 10)))
-      //console.log(cpu_current)
 
       // @todo Make this more sexy
       intervals.push(setInterval(charts[0].plugin.poll, charts[0].plugin.interval))
