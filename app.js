@@ -4,6 +4,8 @@ const App = ((() => {
   // Load in required libs
   const Canvas = require('drawille')
   const blessed = require('blessed')
+  var contrib = require('blessed-contrib')
+
   const os = require('os')
   const cli = require('commander')
   const upgrade = require('./upgrade.js')
@@ -11,22 +13,21 @@ const App = ((() => {
   const childProcess = require('child_process')
   const glob = require('glob')
   const path = require('path')
-  let themes = ''
-  let program = blessed.program()
-  // Stores time at the start of program
-  const time_start = Date.now() 
-  // Total memory/RAM of the system in GB
+  const time_start = Date.now()
   const mem_2 = os.totalmem()/(Math.pow(10, 9))
-
-  // Variables initialised with default values
+//  var flag = 1
   var cpu_current
   var mem_current
   var cpu_sum = 0
   var cpu_avg = 0
+  var count = 0
   var mem_sum = 0
   var mem_avg = 0
-  var count = 0
   var count1 = 0
+  let themes = ''
+  let program = blessed.program()
+
+  let selectedProcess;
 
   const files = glob.sync(path.join(__dirname, 'themes', '*.json'))
   for (var i = 0; i < files.length; i++) {
@@ -81,7 +82,15 @@ const App = ((() => {
   // @todo: move this into charts array
   // This is an instance of Blessed Box
   let graph
-
+  let treelist
+  let treelist1
+  let treelist2
+  let treelist3
+  let processListSelectiontree
+  let processListSelectiontree_1
+  let processListSelectiontree_2
+  let processListSelectiontree_3
+  let list_process
   let graph2
   let processList
   let processListSelection
@@ -132,7 +141,6 @@ const App = ((() => {
       tags: true,
       left: Math.floor(program.cols / 2 - (28 / 2))
     })
-
     screen.append(header)
     screen.append(date)
     screen.append(loadAverage)
@@ -164,16 +172,20 @@ const App = ((() => {
    */
   const drawFooter = () => {
     const commands = {
-      'dd': 'Kill process',
+      'dd': 'Kill proc',
       'j': 'Down',
       'k': 'Up',
-      'g': 'Jump to top',
-      'G': 'Jump to bottom',
-      'c': 'Sort by CPU',
-      'm': 'Sort by Mem',
-      'p': 'Memory usage in percentage',
-      'b': 'Memory usage in GB',
-      'i': 'Sort by PID'
+      'g': 'top jump',
+      'G': 'bottom jump',
+      'c': 'CPU sort',
+      'm': 'Mem sort',
+      'p': 'Mem usage in %', //added 
+      'b': 'Mem usage in GB',
+      'i': 'Sort by PID',
+      't': 'Process Tree',
+      'v': 'Stack size',
+      'l': 'Real Memory',
+      'r': 'Malloc Zone'
     }
     let text = ''
     for (const c in commands) {
@@ -239,7 +251,7 @@ const App = ((() => {
           c.set(x, computeValue(charts[chartKey].values[pos - 1]))
         }
 
-        // Start deleting old data points to improve performance
+        // Start deleting old data points to improve performance////////////////////////////////////////////////////
         // @todo: This is not be the best place to do this
 
         // fills all area underneath top line
@@ -267,22 +279,21 @@ const App = ((() => {
     }
 
     // Add percentage to top right of the chart by splicing it into the braille data
+    //var today = new Date();
+    const time_now = (Date.now() - time_start)/10**3
+    //var str_name = "Last ";
     const textOutput = c.frame().split('\n')
-    
-    // Calculates time elapsed after start of program
-    const time_now = (Date.now() - time_start)/10**3 
 
-    // chartKey is used for determining whether drawChart is called for printing cpu usage or mem usage
     if(chartKey==0){
-      count += 1 
+      count += 1
       cpu_sum += chart.plugin.currentValue
       cpu_avg = Math.round((cpu_sum/count)*100)/100
       cpu_current = chart.plugin.currentValue
       const percent = `   ${chart.plugin.currentValue}`
-    
+
       if(cpu_current>15){
-        const cpu_usage = `${"Average CPU usage in last "}${time_now}${"s"}${" is "}${cpu_avg}%{red-fg}${"\tWarning!!!! Current CPU usage is "}${"\t"}${percent.slice(-3)}%{/red-fg}`
-        textOutput[0] = `${cpu_usage}`
+        const time_use = `${"Average CPU usage in last "}${time_now}${"s"}${" is "}${cpu_avg}%{red-fg}${"\t\t\t\t\t\t\t\t\t\t\tWarning!!!! Current CPU usage is "}${"\t"}${percent.slice(-3)}%{/red-fg}${textOutput[0].slice(0, textOutput[0].length - 4)}`
+        textOutput[0] = `${time_use}`
         graph = blessed.box({
           top: 1,
           left: 'left',
@@ -296,10 +307,9 @@ const App = ((() => {
         graph.setLabel(` ${charts[0].plugin.title} `)
         screen.append(graph)
       }
-      
       else{
-        const cpu_usage = `${"Average CPU usage in last "}${time_now}${"s"}${" is "}${cpu_avg}%{white-fg}${"\tCurrent CPU usage is "}${"\t"}${percent.slice(-3)}%{/white-fg}`
-        textOutput[0] = `${cpu_usage}`
+        const time_use = `${"Average CPU usage in last "}${time_now}${"s"}${" is "}${cpu_avg}%{white-fg}${"\t\t\t\t\t\t\t\t\t\t\tCurrent CPU usage is "}${"\t"}${percent.slice(-3)}%{/white-fg}${textOutput[0].slice(0, textOutput[0].length - 4)}`
+        textOutput[0] = `${time_use}`
         graph = blessed.box({
           top: 1,
           left: 'left',
@@ -324,10 +334,13 @@ const App = ((() => {
       mem_sum += chart.plugin.currentValue
       mem_avg = Math.round((mem_sum/count1)*100)/100
       const percent = `   ${chart.plugin.currentValue}`
-      
-      if(mem_current>65){
-        const mem_usage = `${"Average Memory usage in last "}${time_now}${"s"}${" is "}${mem_avg}%{red-fg}${"\tWarning!!! Current Memory usage is "}${"\t"}${percent.slice(-3)}%{/red-fg}`
-        textOutput[0] = `${mem_usage}`
+
+      if(mem_current>60){
+        const time_use = `${"Average Memory usage in last "}${time_now}${"s"}${" is "}${mem_avg}%{red-fg}${"\tWarning!!! Current Memory usage is "}${"\t"}${percent.slice(-3)}%{/red-fg}${textOutput[0].slice(0, textOutput[0].length - 4)}`
+        textOutput[0] = `${time_use}`
+        // graph2.fg = require(`./themes/${"brew"}.json`).chart.fg
+        // graph2.border = require(`./themes/${"brew"}.json`).chart.border
+        // graph2.content = textOutput.join('\n')
         graph2 = blessed.box({
           top: graph.height + 1,
           left: 'left',
@@ -341,10 +354,9 @@ const App = ((() => {
         graph2.setLabel(` ${charts[1].plugin.title} `)
         screen.append(graph2)
       }
-
       else{
-        const mem_usage = `${"Average Memory usage in last "}${time_now}${"s"}${" is "}${mem_avg}%{white-fg}${"\tCurrent Memory usage is "}${"\t"}${percent.slice(-3)}%{/white-fg}`
-        textOutput[0] = `${mem_usage}`
+        const time_use = `${"Average Memory usage in last "}${time_now}${"s"}${" is "}${mem_avg}%{white-fg}${"\tCurrent Memory usage is "}${"\t"}${percent.slice(-3)}%{/white-fg}${textOutput[0].slice(0, textOutput[0].length - 4)}`
+        textOutput[0] = `${time_use}`
         graph2 = blessed.box({
           top: graph.height + 1,
           left: 'left',
@@ -375,7 +387,7 @@ const App = ((() => {
     const columns = chart.plugin.columns.slice(0)
     columns.reverse()
     let removeColumn = false
-    const lastItem = columns[columns.length - 1]
+    const lastItem = columns[columns.length -1]
 
     const minimumWidth = 12
     let padding = 1
@@ -450,11 +462,10 @@ const App = ((() => {
    */
   const draw = () => {
     position++
+
     const chartKey = 0
-    // graph.setContent(drawChart(chartKey))
-    // graph2.setContent(drawChart(chartKey + 1))
-    drawChart(chartKey)
-    drawChart(chartKey + 1)
+    graph.setContent(drawChart(chartKey))
+    graph2.setContent(drawChart(chartKey + 1))
     //console.log(cpu_current)
 
     if (!disableTableUpdate) {
@@ -495,6 +506,7 @@ const App = ((() => {
 
   // Public function (just the entry point)
   return {
+
     init () {
       let theme
       if (typeof process.theme !== 'undefined') {
@@ -561,11 +573,11 @@ const App = ((() => {
         // @todo: Factor this out
         if (lastKey === 'd' && key.name === 'd') {
           let selectedProcess = processListSelection.getItem(processListSelection.selected).content
-          //selectedProcess = selectedProcess.split(" ")
-          selectedProcess = selectedProcess.slice(6, processWidth).trim()
+          selectedProcess = selectedProcess.slice(7, processWidth).trim()
 
           childProcess.exec(`killall "${selectedProcess}"`, () => {})
         }
+
 
         if(key.name === 'b'){
           charts[2].plugin.mem1 = mem_2/100
@@ -576,6 +588,21 @@ const App = ((() => {
           charts[2].plugin.mem1 = 1
           //charts[2].plugin.columns[1] = "CPU %"
         }
+
+        // if(key.name === 't'){
+        //   screen.remove(processList)
+        //   let selectedProcess = processListSelection.getItem(processListSelection.selected).content
+        //   selectedProcess = selectedProcess.slice(0, 7).trim()
+        //   console.log(selectedProcess)
+        //   processListSelectiontree.setItems(list1)
+
+        //   //charts[2].plugin.columns[1] = "CPU %"
+        // }
+        if (key.name === 'z') {
+          screen.append(processList)
+        }
+
+
 
         if (key.name === 'c' && charts[2].plugin.sort !== 'cpu') {
           charts[2].plugin.flag = 0
@@ -657,6 +684,7 @@ const App = ((() => {
       const createBottom = () => {
         if (graph2appended) {
           screen.remove(graph2)
+          //screen.remove(graph)
           screen.remove(processList)
         }
         graph2appended = true
@@ -670,8 +698,8 @@ const App = ((() => {
           tags: true,
           border: loadedTheme.chart.border
         })
+        screen.append(graph2)
 
-        screen.append(graph2) //
 
         processList = blessed.box({
           top: graph.height + 1,
@@ -684,7 +712,6 @@ const App = ((() => {
           tags: true,
           border: loadedTheme.table.border
         })
-
         screen.append(processList)
 
         processListSelection = blessed.list({
@@ -702,8 +729,9 @@ const App = ((() => {
           mouse: cli.mouse
         })
         processList.append(processListSelection)
+
         processListSelection.focus()
-        drawFooter()  // For Processes' Controls fail to display, in window height change
+        drawFooter()
         screen.render()
       }
 
@@ -712,14 +740,359 @@ const App = ((() => {
       })
       createBottom()
 
+
+//////////////////////////////////////////////////////////////////////////////////
+
+      graph2 = blessed.box({
+        top: graph.height + 1,
+        left: 'left',
+        width: '50%',
+        height: graph.height - 2,
+        content: '',
+        fg: loadedTheme.chart.fg,
+        tags: true,
+        border: loadedTheme.chart.border
+      })
+      screen.append(graph2)
+      processList = blessed.box({
+        top: graph.height + 1,
+        left: '50%',
+        width: screen.width - graph2.width,
+        height: graph.height - 2,
+        keys: true,
+        mouse: cli.mouse,
+        fg: loadedTheme.table.fg,
+        tags: true,
+        border: loadedTheme.table.border
+      })
+      screen.append(processList)
+      processListSelection = blessed.list({
+        height: processList.height - 3,
+        top: 1,
+        width: processList.width - 2,
+        left: 0,
+        keys: true,
+        vi: true,
+        search (jump) {
+        // @TODO
+        // jump('string of thing to jump to');
+        },
+        style: loadedTheme.table.items,
+        mouse: cli.mouse
+      })
+      processList.append(processListSelection)
+      processListSelection.focus()
+
+
+//////////////////////////////////////////////////////////////////////////////////
+
+        treelist = blessed.box({
+          top: graph.height + 1,
+          left: '50%',
+          width: screen.width - graph2.width,
+          height: graph.height -2,
+          keys: true,
+          mouse: cli.mouse,
+          fg: loadedTheme.table.fg,
+          tags: true,
+          border: loadedTheme.table.border
+        })
+
+        var list1 = []
+        processListSelectiontree = blessed.list({
+          height: processList.height - 3,
+          top: 1,
+          width: processList.width - 2,
+          left: 0,
+          keys: true,
+          vi: true,
+          search (jump) {
+            // @TODO
+            // jump('string of thing to jump to');
+          },
+          items:list1,
+          style: loadedTheme.table.items,
+          mouse: cli.mouse
+        })
+       
+        //processListSelectiontree.setItems(list1)
+            screen.on('keypress', (ch, key) => {
+
+            if(key.name === 't'){
+
+                screen.remove(processList)
+                let selectedProcess = processListSelection.getItem(processListSelection.selected).content
+                selectedProcess = selectedProcess.slice(0, 7).trim()
+                //console.log(selectedProcess)
+
+              //let selectedProcess = '13864'
+              var child_process = require("child_process");
+              try{
+                var test = child_process.execSync(`pgrep -P ${selectedProcess}`)
+              test = test.toString()
+                  }
+              catch(err){
+                var test = ''
+              }
+
+
+            const lines = test.split('\n')
+            list1 = []
+            for (const line in lines) {
+              const currentLine = lines[line].trim().replace('  ', ' ')
+              const words = currentLine.split(' ')
+              list1.push(words[0])
+
+            }
+            processListSelectiontree.setItems(list1)
+            screen.append(treelist)
+        }      
+      })
+
+
+        treelist.append(processListSelectiontree)
+
+        processListSelectiontree.focus()
+        processListSelectiontree.setItems(list1)
+
+        //////----------/////////
+
+        treelist1 = blessed.box({
+          top: graph.height + 1,
+          left: '50%',
+          width: screen.width - graph2.width,
+          height: graph.height -2,
+          keys: true,
+          mouse: cli.mouse,
+          fg: loadedTheme.table.fg,
+          tags: true,
+          border: loadedTheme.table.border
+        })
+
+        var list2 = []
+        processListSelectiontree_1 = blessed.list({
+          height: processList.height - 3,
+          top: 1,
+          width: processList.width - 2,
+          left: 0,
+          keys: true,
+          vi: true,
+          search (jump) {
+            // @TODO
+            // jump('string of thing to jump to');
+          },
+          items:list2,
+          style: loadedTheme.table.items,
+          mouse: cli.mouse
+        })
+       
+        //processListSelectiontree_1.setItems(list2)
+            screen.on('keypress', (ch, key) => {
+
+            if(key.name === 'v'){
+
+                screen.remove(processList)
+                let selectedProcess = processListSelection.getItem(processListSelection.selected).content
+                selectedProcess = selectedProcess.slice(0, 7).trim()
+                //console.log(selectedProcess)
+
+              //let selectedProcess = '13864'
+              var child_process = require("child_process");
+              try{
+                var test = child_process.execSync(`vmmap -summary ${selectedProcess} | grep Stack`)
+              test = test.toString()
+                  }
+              catch(err){
+                var test = ''
+              }
+
+
+            const lines = test.split('\n')
+            list2 = []
+            for (const line in lines) {
+              var currentLine = lines[line].trim().replace(' ', '')
+              var words = currentLine.split(' ')
+              //console.log(currentLine)
+              list2.push(currentLine.slice(40,48))
+
+            }
+            processListSelectiontree_1.setItems(list2)
+            screen.append(treelist1)
+
+        }      
+      })
+
+        treelist1.append(processListSelectiontree_1)
+
+        processListSelectiontree_1.focus()
+        processListSelectiontree_1.setItems(list2)
+
+        //////----------/////////
+
+        
+
+        //////----------/////////
+
+        treelist2 = blessed.box({
+          top: graph.height + 1,
+          left: '50%',
+          width: screen.width - graph2.width,
+          height: graph.height -2,
+          keys: true,
+          mouse: cli.mouse,
+          fg: loadedTheme.table.fg,
+          tags: true,
+          border: loadedTheme.table.border
+        })
+
+        var list3 = []
+        processListSelectiontree_2 = blessed.list({
+          height: processList.height - 3,
+          top: 1,
+          width: processList.width - 2,
+          left: 0,
+          keys: true,
+          vi: true,
+          search (jump) {
+            // @TODO
+            // jump('string of thing to jump to');
+          },
+          items:list3,
+          style: loadedTheme.table.items,
+          mouse: cli.mouse
+        })
+       
+        //processListSelectiontree_1.setItems(list2)
+            screen.on('keypress', (ch, key) => {
+
+            if(key.name === 'l'){
+
+                screen.remove(processList)
+                let selectedProcess = processListSelection.getItem(processListSelection.selected).content
+                selectedProcess = selectedProcess.slice(0, 7).trim()
+                //console.log(selectedProcess)
+
+              //let selectedProcess = '13864'
+              var child_process = require("child_process");
+              try{
+                var test = child_process.execSync(`vmmap -summary ${selectedProcess} | grep Writable`)
+                test = test.toString()
+              }
+              catch(err){
+                var test = ''
+              }
+
+
+            const lines = test.split('\n')
+            list3 = []
+            for (const line in lines) {
+              var currentLine = lines[line].trim().replace(' ', '')
+              var words = currentLine.split(' ')
+              var x = currentLine.slice(59,63)
+              var match = x.matchAll(/(\d+\.\d+(M|G))/)
+              var match1 = /(\d+\.\d+(M|G))/.exec(x)
+              //console.log(match1)
+              list3.push(currentLine.slice(55,65))
+
+            }
+            processListSelectiontree_2.setItems(list3)
+            screen.append(treelist2)
+        }      
+      })
+
+        treelist2.append(processListSelectiontree_2)
+
+        processListSelectiontree_2.focus()
+        processListSelectiontree_2.setItems(list3)
+
+        //////----------/////////
+
+
+
+        //////----------/////////
+
+        treelist3 = blessed.box({
+          top: graph.height + 1,
+          left: '50%',
+          width: screen.width - graph2.width,
+          height: graph.height -2,
+          keys: true,
+          mouse: cli.mouse,
+          fg: loadedTheme.table.fg,
+          tags: true,
+          border: loadedTheme.table.border
+        })
+
+        var list4 = []
+        processListSelectiontree_3 = blessed.list({
+          height: processList.height - 3,
+          top: 1,
+          width: processList.width - 2,
+          left: 0,
+          keys: true,
+          vi: true,
+          search (jump) {
+            // @TODO
+            // jump('string of thing to jump to');
+          },
+          items:list4,
+          style: loadedTheme.table.items,
+          mouse: cli.mouse
+        })
+       
+        //processListSelectiontree_1.setItems(list2)
+            screen.on('keypress', (ch, key) => {
+
+            if(key.name === 'r'){
+                screen.remove(processList)
+                let selectedProcess = processListSelection.getItem(processListSelection.selected).content
+                selectedProcess = selectedProcess.slice(0, 7).trim()
+                //console.log(selectedProcess)
+
+              //let selectedProcess = '13864'
+              var child_process = require("child_process");
+              try{
+                var test = child_process.execSync(`vmmap -summary ${selectedProcess} | grep DefaultMallocZone`)
+                test = test.toString()
+              }
+              catch(err){
+                var test = ''
+              }
+
+
+            const lines = test.split('\n')
+            list4 = []
+            for (const line in lines) {
+              var currentLine = lines[line].trim().replace(' ', '')
+              var words = currentLine.split(' ')
+              //console.log(currentLine)
+              list4.push(currentLine.slice(44,52))
+
+            }
+            processListSelectiontree_3.setItems(list4)
+            screen.append(treelist3)
+        }      
+      })
+
+        treelist3.append(processListSelectiontree_3)
+
+        processListSelectiontree_2.focus()
+        processListSelectiontree_2.setItems(list4)
+
+        //////----------/////////
+
+
+
+      //////////////////////////////////////////////////////////////////////
+
+
       screen.append(graph)
       screen.append(processList)
-
-      // Render the screen.
       screen.render()
+      
+      //screen.remove(processList)
+      //screen.append(processList)
 
-      //console.log(screen)
-      //console.log(screen.lines)
       const setupCharts = () => {
         size.pixel.width = (graph.width - 2) * 2
         size.pixel.height = (graph.height - 2) * 4
@@ -768,19 +1141,24 @@ const App = ((() => {
         graph.setLabel(` ${charts[0].plugin.title} `)
         graph2.setLabel(` ${charts[1].plugin.title} `)
         processList.setLabel(` ${charts[2].plugin.title} `)
+        treelist.setLabel(`Process tree`)
+        treelist1.setLabel(`Stack Size`)
+        treelist2.setLabel(`Real Memory Size`)
+        treelist3.setLabel(`Malloc Zone`)
+
       }
 
       setupCharts()
       screen.on('resize', setupCharts)
       intervals.push(setInterval(draw, parseInt(cli['updateInterval'], 10)))
+      //console.log(cpu_current)
 
-      // // @todo Make this more sexy
+      // @todo Make this more sexy
       intervals.push(setInterval(charts[0].plugin.poll, charts[0].plugin.interval))
       intervals.push(setInterval(charts[1].plugin.poll, charts[1].plugin.interval))
       intervals.push(setInterval(charts[2].plugin.poll, charts[2].plugin.interval))
-      screen.realloc()
-      //console.log("bkds")
     }
   }
 })())
+
 App.init()
